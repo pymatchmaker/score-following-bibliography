@@ -1,0 +1,5 @@
+#!/bin/sh
+# Sort and validate the .bib files before every commit.
+# Enable once per clone with:  git config core.hooksPath hooks
+python3 scripts/check_bibtex.py --fix || exit 1
+git add ScoreFollowing*.bib

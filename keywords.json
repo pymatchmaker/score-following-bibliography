@@ -1,0 +1,39 @@
+{
+  "Input": {
+    "audio": "Audio input",
+    "midi": "Symbolic / MIDI input",
+    "sheet-image": "Sheet-music images",
+    "singing": "Singing voice & lyrics",
+    "multimodal": "Multimodal (gaze, video, gestures)"
+  },
+  "Method": {
+    "dtw": "DTW / dynamic programming",
+    "hmm": "Hidden Markov models",
+    "graphical-model": "Bayesian & graphical models",
+    "particle-filter": "Particle filtering",
+    "nmf": "Spectral factorisation / NMF",
+    "deep-learning": "Deep learning",
+    "reinforcement-learning": "Reinforcement learning",
+    "fingerprinting": "Piece identification"
+  },
+  "Problem": {
+    "tempo": "Tempo modelling",
+    "structure": "Repeats, jumps & errors",
+    "features": "Features & distances",
+    "offline": "Offline alignment"
+  },
+  "Application": {
+    "accompaniment": "Automatic accompaniment",
+    "page-turning": "Page turning",
+    "opera": "Opera & concert tracking",
+    "ensemble": "Ensembles & robots",
+    "education": "Practice & education"
+  },
+  "Kind": {
+    "survey": "Survey & tutorial",
+    "evaluation": "Evaluation",
+    "dataset": "Dataset",
+    "software": "Software & formats",
+    "mirex": "MIREX submission"
+  }
+}
