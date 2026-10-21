@@ -62,7 +62,8 @@ before importing.
 **Automatic discovery.** `scripts/discover.py` looks up every entry in
 [OpenAlex](https://openalex.org), collects recent papers that cite entries of the
 core list or whose titles match score-following phrases, and scores them (+2 per
-cited core entry, +1 per cited related entry, +3 for a title match):
+cited core entry, +1 per cited related entry, +5 for a title phrase such as
+"score following", +2 for a looser one such as "accompaniment"):
 
 ```sh
 python3 scripts/discover.py --since 2025-01-01          # report to data/candidates.json

@@ -6,7 +6,10 @@
 2. All works published since --since that cite at least one core entry are
    collected, together with works matching a few title searches.
 3. Each candidate is scored: +2 for each core entry it cites, +1 for each
-   related entry, +3 if its title contains a score-following phrase.
+   related entry, +5 if its title contains a score-following phrase (such as
+   "score following"), +2 for a looser one (such as "accompaniment"). Title
+   phrases only count if the title also mentions music, to skip e.g. medical
+   "risk score following surgery". Versions of one paper are merged by title.
 4. Candidates not yet in any .bib file are written to data/candidates.json
    (a review report); with --add, those scoring at least --min-score are
    appended to ScoreFollowing-Unverified.bib with suggested keywords.
@@ -40,11 +43,15 @@ REPORT = ROOT / "data" / "candidates.json"
 TITLE_SEARCHES = ["score following", "music alignment real-time", "music tracking real-time",
                   "automatic accompaniment", "audio-to-score alignment", "online time warping music",
                   "lyrics alignment real-time", "page turning music"]
-TITLE_PHRASE = re.compile(r"score[- ]follow|music(al)? (performance )?(tracking|alignment|following)"
-                          r"|audio[- ]to[- ]score|accompani|real[- ]time.*align|on-?line.*align"
-                          r"|page[- ]turn|opera tracking|lyrics? alignment", re.I)
+STRONG_PHRASE = re.compile(r"score[- ]follow|music(al)? (performance )?(tracking|alignment|following)"
+                           r"|audio[- ]to[- ]score|real[- ]time.*align|on-?line.*align"
+                           r"|opera tracking|lyrics? alignment|score[- ]performance (alignment|matching)", re.I)
+WEAK_PHRASE = re.compile(r"accompani|page[- ]turn|time warping", re.I)
+MUSIC = re.compile(r"\b(music\w*|piano\w*|violin\w*|guitar\w*|audio|songs?|sing(ing|ers?)?|vocal\w*"
+                   r"|orchestr\w*|operas?|lyrics?|sheet|midi|ensembles?|concert\w*|instrument\w*"
+                   r"|melod\w*|chords?|tempo|accompan\w*)\b", re.I)
 
-TYPE_MAP = {"article": "article", "review": "article", "preprint": "misc", "book-chapter": "incollection",
+TYPE_MAP = {"conference-paper": "inproceedings", "article": "article", "review": "article", "preprint": "misc", "book-chapter": "incollection",
             "dissertation": "phdthesis", "book": "book", "report": "techreport"}
 
 
@@ -122,16 +129,27 @@ def _resolve(todo, with_doi, cache):
         time.sleep(0.1)
 
 
+def bib_name(name):
+    """'Ana Silva' -> 'Silva, Ana'; names already in 'Last, First' form are kept."""
+    if "," in name:
+        return name.strip(", ")
+    parts = name.split()
+    return f"{parts[-1]}, {' '.join(parts[:-1])}" if len(parts) > 1 else name
+
+
 def to_entry(work):
     """Build a BibTeX entry from an OpenAlex work."""
     loc = work.get("primary_location") or {}
     source = (loc.get("source") or {}).get("display_name", "")
     kind = TYPE_MAP.get(work.get("type"), "misc")
-    if kind == "article" and (loc.get("source") or {}).get("type") == "conference":
+    source_type = (loc.get("source") or {}).get("type")
+    if kind == "article" and source_type == "conference":
         kind = "inproceedings"
+    elif kind == "article" and source_type == "repository":  # e.g. a thesis in a university repository
+        kind = "misc"
     fields = {
         "author": " and ".join(
-            (lambda n: f"{n[-1]}, {' '.join(n[:-1])}" if len(n) > 1 else n[0])(a["author"]["display_name"].split())
+            bib_name(a["author"]["display_name"])
             for a in work.get("authorships", []) if a.get("author", {}).get("display_name")) or "Anonymous",
         "title": work.get("title") or work.get("display_name") or "",
         "year": str(work.get("publication_year") or ""),
@@ -184,13 +202,21 @@ def main():
             continue
         refs = {r.rsplit("/", 1)[-1] for r in w.get("referenced_works", [])}
         n_core, n_related = len(refs & core_ids), len(refs & related_ids)
-        phrase = bool(TITLE_PHRASE.search(title))
-        score = 2 * n_core + n_related + 3 * phrase
+        music = MUSIC.search(title)
+        phrase = 5 if music and STRONG_PHRASE.search(title) else 2 if music and WEAK_PHRASE.search(title) else 0
+        score = 2 * n_core + n_related + phrase
         if score:
             candidates.append({"score": score, "cites_core": n_core, "cites_related": n_related,
                                "title_match": phrase, "title": title, "year": w.get("publication_year"),
                                "doi": doi, "openalex": w["id"], "work": w})
-    candidates.sort(key=lambda c: (-c["score"], c["title"]))
+    # Merge versions of the same paper (e.g. preprint and proceedings): keep the
+    # best-scoring one, preferring a version with a DOI.
+    best = {}
+    for c in candidates:
+        t = normalize_title(c["title"])
+        if t not in best or (c["score"], bool(c["doi"])) > (best[t]["score"], bool(best[t]["doi"])):
+            best[t] = c
+    candidates = sorted(best.values(), key=lambda c: (-c["score"], c["title"]))
 
     REPORT.write_text(json.dumps([{k: v for k, v in c.items() if k != "work"} for c in candidates],
                                  indent=1, ensure_ascii=False) + "\n")
