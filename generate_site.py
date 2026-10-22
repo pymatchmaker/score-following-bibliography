@@ -204,7 +204,7 @@ a{color:#155799;text-decoration:none}
 a:hover{text-decoration:underline}
 
 /* Header */
-.page-header{padding:40px 20px 24px;color:#fff;text-align:center;background:linear-gradient(120deg,#155799,#159957)}
+.page-header{padding:40px 20px 24px;color:#fff;text-align:center;background:linear-gradient(120deg,#0c3156,#991557)}
 .page-header h1{margin:0 0 6px;font-size:42px;font-weight:700;line-height:1.2}
 .page-header p{margin:0 0 14px;opacity:.85}
 .btn-github,.btn-nav{display:inline-block;padding:.75rem 1rem;margin:0 3px 1rem;border-radius:.3rem;
@@ -222,9 +222,9 @@ a:hover{text-decoration:underline}
 .controls input[type=search],.controls select,.controls .btn{font-family:inherit;font-size:inherit;padding:5px 10px;
   border:1px solid #ced4da;border-radius:4px;background:#fff;color:#212529;outline:none}
 .controls input[type=search]{flex:1 1 200px;min-width:160px}
-.controls input[type=search]:focus,.controls select:focus{border-color:#159957;box-shadow:0 0 0 2px rgba(21,153,87,.15)}
+.controls input[type=search]:focus,.controls select:focus{border-color:#991557;box-shadow:0 0 0 2px rgba(21,153,87,.15)}
 .controls select,.controls .btn{cursor:pointer;max-width:100%}
-.controls .btn:hover{border-color:#159957;color:#159957;text-decoration:none}
+.controls .btn:hover{border-color:#991557;color:#991557;text-decoration:none}
 .controls label{color:#555;white-space:nowrap}
 .stat-label{color:#666;white-space:nowrap}
 
@@ -237,7 +237,7 @@ a:hover{text-decoration:underline}
 .entry-card:target{border-color:#159957;box-shadow:0 0 0 2px rgba(21,153,87,.25)}
 .entry-header{padding:12px 14px 10px}
 .entry-chips{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:4px}
-.entry-year{font-size:.75rem;font-weight:700;color:#fff;background:#159957;padding:2px 7px;border-radius:3px}
+.entry-year{font-size:.75rem;font-weight:700;color:#fff;background:#991557;padding:2px 7px;border-radius:3px}
 .entry-type{font-size:.75rem;color:#666;background:#f0f0f0;padding:2px 7px;border-radius:3px;text-transform:lowercase}
 .entry-authors{color:#555;margin-bottom:3px}
 .entry-title{font-weight:600;color:#155799;margin-bottom:4px;line-height:1.4}
