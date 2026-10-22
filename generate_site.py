@@ -4,8 +4,9 @@
     python3 generate_site.py            # writes site/index.html, related.html, unverified.html
     python3 generate_site.py --check    # only parse and validate, write nothing
 
-The pages are self-contained (no external scripts or styles) and work
-without JavaScript; JavaScript adds search, keyword filters and BibTeX copy.
+The layout follows the OMR Research bibliography. The pages need no external
+scripts (only the Open Sans web font) and list all entries without JavaScript;
+JavaScript adds search, filters, sorting and the expandable BibTeX panels.
 """
 import argparse
 import html
@@ -13,12 +14,13 @@ import json
 import re
 import shutil
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
-from bibtools import BIB_FILES, ROOT, latex_to_text, read_bib, split_authors  # noqa: E402
+from bibtools import (BIB_FILES, ROOT, ascii_fold, last_name, latex_to_text, read_bib,  # noqa: E402
+                      split_authors)
 
 OUT = ROOT / "site"
 TITLE = "Bibliography on Real-Time Score Following"
@@ -64,97 +66,113 @@ def format_authors(entry):
 
 
 def format_venue(e):
+    """Plain-text venue line, parts joined with ' · ' as on the OMR page."""
     t = lambda f: latex_to_text(e.get(f))  # noqa: E731
-    parts = []
     if e.type == "article":
-        journal = t("journal")
-        vol = t("volume") + (f"({t('number')})" if e.get("number") else "")
-        parts = [f"<em>{esc(journal)}</em>" if journal else "", esc(vol)]
+        parts = [t("journal"), t("volume") + (f"({t('number')})" if e.get("number") else "")]
     elif e.type in ("inproceedings", "incollection"):
-        parts = [f"<em>{esc(t('booktitle'))}</em>" if e.get("booktitle") else "", esc(t("publisher"))]
+        parts = [t("booktitle"), t("publisher")]
     elif e.type in THESIS_TYPES:
-        kind = THESIS_TYPES[e.type]
-        parts = [esc(kind), esc(t("school"))]
+        parts = [THESIS_TYPES[e.type], t("school")]
     elif e.type == "techreport":
-        parts = [esc(t("type") or "Technical report"), esc(t("institution")), esc(t("number"))]
+        parts = [t("type") or "Technical report", t("institution"), t("number")]
     elif e.type == "patent":
-        parts = [esc(" ".join(filter(None, ["Patent", t("number")]))), esc(t("assignee"))]
+        parts = [" ".join(filter(None, ["Patent", t("number")])), t("assignee")]
     elif e.type == "book":
-        parts = [esc(t("publisher"))]
+        parts = [t("publisher")]
     else:
-        parts = [esc(t("howpublished") or t("publisher") or t("note"))]
+        parts = [t("howpublished") or t("publisher") or t("note")]
     if e.get("pages"):
-        parts.append("pp. " + esc(t("pages")))
-    return ", ".join(p for p in parts if p)
+        parts.append("pp. " + t("pages"))
+    return " · ".join(p for p in parts if p)
 
 
-def entry_link(e):
-    if e.get("doi"):
-        return "https://doi.org/" + e.get("doi")
-    return e.get("url")
+def entry_links(e):
+    """(label, url, css class) badges, as on the OMR Research page."""
+    links = []
+    doi, url = e.get("doi"), e.get("url")
+    if doi:
+        arxiv = doi.lower().startswith("10.48550/arxiv.")
+        links.append(("arXiv" if arxiv else "DOI", "https://doi.org/" + doi, "badge-arxiv" if arxiv else "badge-doi"))
+    if url:
+        arxiv = "arxiv.org" in url
+        links.append(("arXiv" if arxiv else "URL", url, "badge-arxiv" if arxiv else "badge-url"))
+    return links
+
+
+def year_month(e):
+    year = int(re.sub(r"\D", "", e.get("year"))[:4] or 0)
+    return year * 100 + MONTHS.get(e.get("month", "").lower()[:3], 0)
 
 
 def sort_key(e):
-    month = e.get("month", "").lower()[:3]
-    return (-int(re.sub(r"\D", "", e.get("year")) or 0), -MONTHS.get(month, 0), e.key.lower())
+    return (-year_month(e), e.key.lower())
+
+
+def first_author_key(e):
+    authors = split_authors(e.get("author") or e.get("editor"))
+    return re.sub(r"[^a-z]", "", ascii_fold(last_name(authors[0])).lower()) if authors else ""
 
 
 def render_entry(e, labels):
     title = latex_to_text(e.get("title"))
-    link = entry_link(e)
-    title_html = f'<a href="{esc(link)}">{esc(title)}</a>' if link else esc(title)
-    links = []
-    if e.get("doi"):
-        links.append(f'<a class="act" href="https://doi.org/{esc(e.get("doi"))}">DOI</a>')
-    if e.get("url"):
-        links.append(f'<a class="act" href="{esc(e.get("url"))}">URL</a>')
-    links.append(f'<button class="act" type="button" data-bib="{esc(e.key)}">BibTeX</button>')
-    tags = "".join(f'<button class="tag" type="button" data-tag="{esc(k)}">{esc(labels.get(k, k))}</button>'
-                   for k in e.keywords)
-    search = " ".join([title, format_authors(e), latex_to_text(e.get("booktitle") or e.get("journal")),
-                       e.get("year"), e.key, " ".join(e.keywords)]).lower()
-    return f"""<li class="entry" id="{esc(e.key)}" data-tags="{esc(' '.join(e.keywords))}" data-search="{esc(search)}">
-<div class="title">{title_html}</div>
-<div class="authors">{esc(format_authors(e))}</div>
-<div class="venue">{format_venue(e)}{', ' if format_venue(e) else ''}{esc(e.get('year'))}</div>
-<div class="meta">{''.join(links)}<span class="tags">{tags}</span></div>
-<pre class="bibtex" hidden>{esc(e.to_bibtex())}</pre>
-</li>"""
+    links = entry_links(e)
+    title_html = f'<a href="{esc(links[0][1])}">{esc(title)}</a>' if links else esc(title)
+    badges = "".join(f'<a class="badge {cls}" href="{esc(href)}">{label}</a>' for label, href, cls in links)
+    tags = "".join(f'<button class="kw" type="button" data-tag="{esc(k)}" title="Show all entries with this keyword">'
+                   f'{esc(labels.get(k, k))}</button>' for k in e.keywords)
+    venue = format_venue(e)
+    authors = format_authors(e)
+    search = " ".join([e.key, e.get("year"), authors, title, venue, e.type,
+                       " ".join(labels.get(k, k) for k in e.keywords)]).lower()
+    return f"""<article class="entry-card" id="{esc(e.key)}" data-year="{esc(latex_to_text(e.get('year')))}"
+ data-type="{esc(e.type)}" data-tags="{esc(' '.join(e.keywords))}" data-ym="{year_month(e)}"
+ data-author="{esc(first_author_key(e))}" data-key="{esc(e.key.lower())}" data-search="{esc(search)}">
+<div class="entry-header">
+<div class="entry-chips"><span class="entry-year">{esc(latex_to_text(e.get('year')))}</span><span class="entry-type">{esc(e.type)}</span>{badges}</div>
+<div class="entry-authors">{esc(authors)}</div>
+<div class="entry-title">{title_html}</div>
+{f'<div class="entry-venue">{esc(venue)}</div>' if venue else ''}
+{f'<div class="entry-kws">{tags}</div>' if tags else ''}
+</div>
+<div class="entry-panel">
+<div class="entry-bibtex-wrap"><button class="copy-btn" type="button">Copy BibTeX</button><pre class="entry-bibtex">{esc(e.to_bibtex().strip())}</pre></div>
+</div>
+</article>"""
 
 
-def render_filters(vocabulary, counts):
+def render_options(values, counts=None):
+    return "".join(f'<option value="{esc(v)}">{esc(label)}{f" ({counts[v]})" if counts else ""}</option>'
+                   for v, label in values)
+
+
+def render_keyword_options(vocabulary, counts):
     groups = []
     for group, tags in vocabulary.items():
-        chips = "".join(
-            f'<button class="tag" type="button" data-tag="{esc(k)}" aria-pressed="false">'
-            f'{esc(label)}<span class="n">{counts[k]}</span></button>'
-            for k, label in tags.items() if counts[k])
-        if chips:
-            groups.append(f'<div class="fgroup"><span class="flabel">{esc(group)}</span>{chips}</div>')
-    return "\n".join(groups)
+        opts = render_options([(k, label) for k, label in tags.items() if counts[k]], counts)
+        if opts:
+            groups.append(f'<optgroup label="{esc(group)}">{opts}</optgroup>')
+    return "".join(groups)
 
 
 def render_page(name, entries, vocabulary, totals):
     filename, heading, intro = PAGES[name]
     labels = {k: v for tags in vocabulary.values() for k, v in tags.items()}
-    counts = Counter(k for e in entries for k in e.keywords)
-    by_year = defaultdict(list)
-    for e in sorted(entries, key=sort_key):
-        by_year[latex_to_text(e.get("year")) or "Undated"].append(e)
-    sections = "\n".join(
-        f'<section class="year" data-year="{esc(y)}"><h2>{esc(y)}<span class="n">{len(es)}</span></h2>\n'
-        f'<ol>{"".join(render_entry(e, labels) for e in es)}</ol></section>'
-        for y, es in by_year.items())
+    entries = sorted(entries, key=sort_key)
+    years = sorted({latex_to_text(e.get("year")) for e in entries if e.get("year")}, reverse=True)
+    types = Counter(e.type for e in entries)
     nav = "".join(
-        f'<a href="{PAGES[n][0]}"{" aria-current=page" if n == name else ""}>{esc(PAGES[n][1])}'
-        f'<span class="n">{totals[n]}</span></a>' for n in PAGES)
-    bibfile = BIB_FILES[name].name
-    empty = '' if entries else '<p class="empty-list">No entries yet.</p>'
+        f'<a href="{PAGES[n][0]}" class="btn-nav{" btn-nav-active" if n == name else ""}">'
+        f'{esc(PAGES[n][1])} <span class="n">{totals[n]}</span></a>' for n in PAGES)
     return TEMPLATE.format(
-        title=esc(TITLE), heading=esc(heading), intro=esc(intro), nav=nav,
-        filters=render_filters(vocabulary, counts), sections=sections, count=len(entries),
-        bibfile=esc(bibfile), repo=esc(REPO_URL), today=date.today().isoformat(),
-        empty=empty, script=SCRIPT, style=STYLE)
+        title=esc(TITLE), heading=esc(heading), intro=esc(intro), nav=nav, repo=esc(REPO_URL),
+        updated=date.today().strftime("%d.%m.%Y"), bibfile=esc(BIB_FILES[name].name),
+        years=render_options([(y, y) for y in years]),
+        types=render_options([(t, t) for t in sorted(types)], types),
+        keywords=render_keyword_options(vocabulary, Counter(k for e in entries for k in e.keywords)),
+        entries="\n".join(render_entry(e, labels) for e in entries), count=len(entries),
+        empty="" if entries else '<p class="no-results">No entries yet.</p>',
+        script=SCRIPT, style=STYLE)
 
 
 def main():
@@ -178,96 +196,140 @@ def main():
           + ", ".join(f"{n} {name}" for name, n in totals.items()) + ")")
 
 
+# Layout and colours follow the OMR Research bibliography (https://omr-research.github.io/).
 STYLE = """
-:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#5f6368;--line:#e4e1da;--card:#fff;--accent:#2f5d8a;
---chip:#eef1f5;--chip-on:#2f5d8a;--chip-on-fg:#fff;--mark:#fff3b0}
-@media (prefers-color-scheme:dark){:root{--bg:#16171a;--fg:#e8e6e3;--muted:#9aa0a6;--line:#2c2e33;
---card:#1d1f23;--accent:#8ab4e8;--chip:#272a30;--chip-on:#8ab4e8;--chip-on-fg:#111;--mark:#5a4a00}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-a{color:var(--accent)}
-.wrap{max-width:960px;margin:0 auto;padding:0 16px}
-header{border-bottom:1px solid var(--line);padding:32px 0 0}
-header h1{font-size:1.7rem;line-height:1.2;margin:0 0 6px}
-header p{color:var(--muted);margin:0 0 16px;max-width:70ch}
-nav{display:flex;gap:4px;flex-wrap:wrap}
-nav a{padding:8px 14px;border-radius:8px 8px 0 0;text-decoration:none;color:var(--muted);border:1px solid transparent;border-bottom:none}
-nav a[aria-current]{color:var(--fg);background:var(--bg);border-color:var(--line);margin-bottom:-1px;font-weight:600}
-.n{font-size:.75em;color:var(--muted);margin-left:6px;font-weight:400}
-.controls{position:sticky;top:0;z-index:2;background:var(--bg);padding:14px 0 10px;border-bottom:1px solid var(--line)}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-input[type=search]{flex:1;min-width:200px;padding:9px 12px;font:inherit;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}
-.btn{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;font-size:.9rem;cursor:pointer;text-decoration:none;white-space:nowrap}
-details.filters{margin-top:10px}
-details.filters summary{cursor:pointer;color:var(--muted);font-size:.9rem}
-.fgroup{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
-.flabel{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);width:90px}
-.tag{border:0;background:var(--chip);color:var(--fg);border-radius:999px;padding:2px 10px;font:inherit;font-size:.78rem;cursor:pointer}
-.tag[aria-pressed=true]{background:var(--chip-on);color:var(--chip-on-fg)}
-.tag[aria-pressed=true] .n{color:inherit}
-.status{font-size:.85rem;color:var(--muted);margin-top:8px}
-.intro{color:var(--muted);margin:18px 0 0}
-section.year h2{font-size:1.1rem;margin:28px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line)}
-ol{list-style:none;margin:0;padding:0}
-.entry{padding:10px 0 12px;border-bottom:1px solid var(--line)}
-.entry:last-child{border-bottom:0}
-.entry:target{background:var(--mark);margin:0 -8px;padding:10px 8px 12px;border-radius:6px}
-.title{font-weight:600}
-.title a{color:inherit;text-decoration:none}
-.title a:hover{color:var(--accent);text-decoration:underline}
-.authors{font-size:.93rem}
-.venue{font-size:.9rem;color:var(--muted)}
-.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
-.act{font:inherit;font-size:.78rem;border:1px solid var(--line);background:var(--card);color:var(--accent);border-radius:6px;padding:1px 8px;cursor:pointer;text-decoration:none}
-.tags{display:contents}
-pre.bibtex{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:.8rem;overflow-x:auto;margin:8px 0 0;white-space:pre}
-.empty-list,.none{color:var(--muted);padding:24px 0}
-footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);margin-top:40px;padding:20px 0 40px}
-@media (max-width:600px){.flabel{width:100%}header h1{font-size:1.35rem}}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;font-family:"Open Sans",Arial,sans-serif;font-size:1rem;background:#f8f9fa;color:#212529}
+a{color:#155799;text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Header */
+.page-header{padding:40px 20px 24px;color:#fff;text-align:center;background:linear-gradient(120deg,#155799,#159957)}
+.page-header h1{margin:0 0 6px;font-size:42px;font-weight:700;line-height:1.2}
+.page-header p{margin:0 0 14px;opacity:.85}
+.btn-github,.btn-nav{display:inline-block;padding:.75rem 1rem;margin:0 3px 1rem;border-radius:.3rem;
+  color:rgba(255,255,255,.7);transition:color .2s,background-color .2s,border-color .2s}
+.btn-github{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2)}
+.btn-github:hover{background:rgba(255,255,255,.2);color:#fff;text-decoration:none}
+.page-nav{display:flex;flex-wrap:wrap;justify-content:center}
+.btn-nav:hover{background:rgba(255,255,255,.15);color:#fff;text-decoration:none}
+.btn-nav-active{background:rgba(255,255,255,.2);color:#fff;font-weight:600}
+.btn-nav .n{font-size:.8em;opacity:.8;font-weight:400}
+
+/* Controls */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 20px;background:#fff;
+  border-bottom:1px solid #dee2e6;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.controls input[type=search],.controls select,.controls .btn{font-family:inherit;font-size:inherit;padding:5px 10px;
+  border:1px solid #ced4da;border-radius:4px;background:#fff;color:#212529;outline:none}
+.controls input[type=search]{flex:1 1 200px;min-width:160px}
+.controls input[type=search]:focus,.controls select:focus{border-color:#159957;box-shadow:0 0 0 2px rgba(21,153,87,.15)}
+.controls select,.controls .btn{cursor:pointer;max-width:100%}
+.controls .btn:hover{border-color:#159957;color:#159957;text-decoration:none}
+.controls label{color:#555;white-space:nowrap}
+.stat-label{color:#666;white-space:nowrap}
+
+/* Entries */
+.entry-list{padding:12px 20px;max-width:1100px;margin:0 auto}
+.page-intro{color:#666;margin:4px 0 14px;font-size:.95rem}
+.entry-card{background:#fff;border:1px solid #e1e4e8;border-radius:6px;margin-bottom:10px;overflow:hidden;
+  cursor:pointer;transition:box-shadow .15s}
+.entry-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.entry-card:target{border-color:#159957;box-shadow:0 0 0 2px rgba(21,153,87,.25)}
+.entry-header{padding:12px 14px 10px}
+.entry-chips{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:4px}
+.entry-year{font-size:.75rem;font-weight:700;color:#fff;background:#159957;padding:2px 7px;border-radius:3px}
+.entry-type{font-size:.75rem;color:#666;background:#f0f0f0;padding:2px 7px;border-radius:3px;text-transform:lowercase}
+.entry-authors{color:#555;margin-bottom:3px}
+.entry-title{font-weight:600;color:#155799;margin-bottom:4px;line-height:1.4}
+.entry-title a{color:#155799}
+.entry-title a:hover{color:#159957}
+.entry-venue{color:#666;font-style:italic}
+.entry-kws{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.kw{font-family:inherit;font-size:.72rem;color:#155799;background:#eef4fb;border:1px solid #d6e4f3;
+  padding:1px 7px;border-radius:10px;cursor:pointer}
+.kw:hover{background:#155799;color:#fff;border-color:#155799}
+.badge{display:inline-block;font-size:.75rem;font-weight:700;padding:2px 7px;border-radius:3px;transition:opacity .15s}
+.badge:hover{opacity:.8;text-decoration:none}
+.badge-doi{background:#dbeafe;color:#1e40af}
+.badge-arxiv{background:#fef3c7;color:#92400e}
+.badge-url{background:#d1fae5;color:#065f46}
+
+/* Expandable BibTeX panel */
+.entry-panel{display:none;border-top:1px solid #e9ecef;background:#f8f9fa;cursor:auto}
+.entry-card.open .entry-panel{display:block}
+.entry-bibtex-wrap{position:relative;padding:10px 14px}
+.entry-bibtex{font-family:"Courier New",monospace;font-size:.8rem;white-space:pre-wrap;word-break:break-all;color:#333;margin:0;padding-right:110px}
+.copy-btn{position:absolute;top:10px;right:14px;font-family:inherit;font-size:.75rem;cursor:pointer;padding:3px 10px;
+  border-radius:4px;border:1px solid #ced4da;background:#fff;color:#555;transition:background .15s,color .15s}
+.copy-btn:hover,.copy-btn.copied{background:#159957;color:#fff;border-color:#159957}
+
+.no-results{text-align:center;color:#888;padding:40px}
+.page-footer{text-align:center;color:#888;font-size:.85rem;padding:20px 20px 40px;max-width:1100px;margin:0 auto}
+
+@media (max-width:600px){
+  .page-header{padding:28px 16px 16px}
+  .page-header h1{font-size:28px}
+  .controls{padding:10px 16px;position:static}
+  .entry-list{padding:12px 16px}
+  .entry-bibtex{padding-right:0;padding-top:28px}
+}
 """
 
 SCRIPT = """
 (function(){
-  const q = document.getElementById('q'), status = document.getElementById('status');
-  const entries = [...document.querySelectorAll('.entry')];
-  const active = new Set();
-  function apply(){
-    const terms = q.value.toLowerCase().split(/\\s+/).filter(Boolean);
+  const $ = id => document.getElementById(id);
+  const list = $('entryList'), cards = [...list.querySelectorAll('.entry-card')];
+  const controls = ['q', 'fYear', 'fType', 'fKeyword', 'fSort'];
+  const byYearDesc = (a, b) => b.dataset.ym - a.dataset.ym || a.dataset.key.localeCompare(b.dataset.key);
+  const sorters = {
+    year_desc: byYearDesc,
+    year_asc: (a, b) => a.dataset.ym - b.dataset.ym || a.dataset.key.localeCompare(b.dataset.key),
+    author: (a, b) => a.dataset.author.localeCompare(b.dataset.author) || byYearDesc(a, b),
+    key: (a, b) => a.dataset.key.localeCompare(b.dataset.key),
+  };
+
+  function applyFilters(){
+    const terms = $('q').value.toLowerCase().split(/\\s+/).filter(Boolean);
+    const yr = $('fYear').value, tp = $('fType').value, kw = $('fKeyword').value;
     let shown = 0;
-    for (const li of entries){
-      const tags = li.dataset.tags.split(' ');
-      const ok = terms.every(t => li.dataset.search.includes(t)) && [...active].every(t => tags.includes(t));
-      li.hidden = !ok; if (ok) shown++;
+    for (const c of cards){
+      const ok = terms.every(t => c.dataset.search.includes(t))
+        && (!yr || c.dataset.year === yr) && (!tp || c.dataset.type === tp)
+        && (!kw || c.dataset.tags.split(' ').includes(kw));
+      c.hidden = !ok; if (ok) shown++;
     }
-    for (const s of document.querySelectorAll('section.year'))
-      s.hidden = ![...s.querySelectorAll('.entry')].some(li => !li.hidden);
-    for (const b of document.querySelectorAll('.controls .tag'))
-      b.setAttribute('aria-pressed', active.has(b.dataset.tag));
-    document.getElementById('none').hidden = shown > 0 || !entries.length;
-    status.textContent = (terms.length || active.size) ? shown + ' of ' + entries.length + ' entries' : entries.length + ' entries';
+    [...cards].sort(sorters[$('fSort').value] || byYearDesc).forEach(c => list.appendChild(c));
+    $('noResults').hidden = shown > 0 || !cards.length;
+    $('statLabel').textContent = shown === cards.length ? cards.length + ' entries' : shown + ' of ' + cards.length + ' entries';
     const params = new URLSearchParams();
-    if (q.value) params.set('q', q.value);
-    if (active.size) params.set('tags', [...active].join(','));
+    for (const id of controls){ const v = $(id).value; if (v && !(id === 'fSort' && v === 'year_desc')) params.set(id, v); }
     history.replaceState(null, '', (params.toString() ? '?' + params : location.pathname) + location.hash);
   }
-  function toggle(tag){ active.has(tag) ? active.delete(tag) : active.add(tag); apply(); }
-  document.addEventListener('click', e => {
-    const tag = e.target.closest('.tag');
-    if (tag){ toggle(tag.dataset.tag); if (!tag.closest('.controls')) document.querySelector('.controls').scrollIntoView(); return; }
-    const bib = e.target.closest('[data-bib]');
-    if (bib){
-      const pre = bib.closest('.entry').querySelector('pre.bibtex');
-      pre.hidden = !pre.hidden;
-      if (!pre.hidden && navigator.clipboard) navigator.clipboard.writeText(pre.textContent).then(() => {
-        bib.textContent = 'Copied'; setTimeout(() => bib.textContent = 'BibTeX', 1500); }, () => {});
+
+  list.addEventListener('click', e => {
+    const card = e.target.closest('.entry-card');
+    if (!card) return;
+    const kw = e.target.closest('.kw');
+    if (kw){ $('fKeyword').value = kw.dataset.tag; applyFilters(); window.scrollTo({top: $('controls').offsetTop}); return; }
+    const copy = e.target.closest('.copy-btn');
+    if (copy){
+      navigator.clipboard.writeText(card.querySelector('.entry-bibtex').textContent).then(() => {
+        copy.textContent = 'Copied!'; copy.classList.add('copied');
+        setTimeout(() => { copy.textContent = 'Copy BibTeX'; copy.classList.remove('copied'); }, 1800);
+      }, () => {});
+      return;
     }
+    // Links and selecting text inside the BibTeX panel should not toggle the card.
+    if (e.target.closest('a, .entry-panel') || String(window.getSelection())) return;
+    card.classList.toggle('open');
   });
-  q.addEventListener('input', apply);
-  document.getElementById('clear').addEventListener('click', () => { q.value = ''; active.clear(); apply(); });
+  for (const id of controls) $(id).addEventListener(id === 'q' ? 'input' : 'change', applyFilters);
+
   const params = new URLSearchParams(location.search);
-  q.value = params.get('q') || '';
-  (params.get('tags') || '').split(',').filter(Boolean).forEach(t => active.add(t));
-  apply();
+  for (const id of controls) if (params.get(id)) $(id).value = params.get(id);
+  if (location.hash && document.getElementById(location.hash.slice(1)))
+    document.getElementById(location.hash.slice(1)).classList.add('open');
+  applyFilters();
 })();
 """
 
@@ -278,36 +340,46 @@ TEMPLATE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{heading} – {title}</title>
 <meta name="description" content="{intro}">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,700&display=swap">
 <style>{style}</style>
 </head>
 <body>
-<header><div class="wrap">
+<section class="page-header">
 <h1>{title}</h1>
-<p>A curated, open bibliography of research on real-time score following, also known as real-time music alignment or music tracking. Contributions are welcome.</p>
-<nav>{nav}</nav>
-</div></header>
-<main class="wrap">
-<p class="intro">{intro}</p>
-<div class="controls">
-<div class="row">
-<input id="q" type="search" placeholder="Search titles, authors, venues, years…" aria-label="Search">
-<button class="btn" id="clear" type="button">Clear</button>
+<p>Last updated: {updated}</p>
+<a href="{repo}" class="btn-github">View on GitHub</a>
+<nav class="page-nav">{nav}</nav>
+</section>
+
+<div class="controls" id="controls">
+<input type="search" id="q" placeholder="Search title, author, venue, keyword, key…" aria-label="Search">
+<select id="fYear" aria-label="Year"><option value="">All years</option>{years}</select>
+<select id="fType" aria-label="Entry type"><option value="">All types</option>{types}</select>
+<select id="fKeyword" aria-label="Keyword"><option value="">All keywords</option>{keywords}</select>
+<label>Sort:
+<select id="fSort">
+<option value="year_desc">Year ↓</option>
+<option value="year_asc">Year ↑</option>
+<option value="author">Author A–Z</option>
+<option value="key">Key A–Z</option>
+</select>
+</label>
 <a class="btn" href="{bibfile}" download>Download .bib</a>
+<span class="stat-label" id="statLabel">{count} entries</span>
 </div>
-<details class="filters" open><summary>Filter by keyword</summary>
-{filters}
-</details>
-<div class="status" id="status">{count} entries</div>
-</div>
+
+<main class="entry-list" id="entryList">
+<p class="page-intro">{intro} Click an entry to show its BibTeX.</p>
 {empty}
-<p class="none" id="none" hidden>No entries match the current search and filters.</p>
-{sections}
+<p class="no-results" id="noResults" hidden>No entries match the current filters.</p>
+{entries}
 </main>
-<footer><div class="wrap">
-<p>Maintained alongside the <a href="https://github.com/pymatchmaker/matchmaker">Matchmaker</a> project. Missing a paper or found an error?
-Open an issue or a pull request at <a href="{repo}">{repo}</a>.</p>
-<p>Generated on {today} from <a href="{bibfile}">{bibfile}</a>. Inspired by the <a href="https://omr-research.github.io/">OMR Research bibliography</a>.</p>
-</div></footer>
+
+<footer class="page-footer">
+<p>Maintained alongside <a href="https://github.com/pymatchmaker/matchmaker">Matchmaker</a>. Missing a paper or found an error?
+Open an issue or a pull request on <a href="{repo}">GitHub</a>.
+Modelled on the <a href="https://omr-research.github.io/">Bibliography on Optical Music Recognition</a>.</p>
+</footer>
 <script>{script}</script>
 </body>
 </html>
