@@ -1,0 +1,66 @@
+{
+ "applied": [
+  {
+   "key": "CancinoChacon2023Accompanion",
+   "list": "core",
+   "doi": "10.24963/ijcai.2023/641",
+   "similarity": 1.0,
+   "type": "proceedings-article",
+   "year": 2023,
+   "author_match": true,
+   "title": "The ACCompanion: Combining Reactivity, Robustness, and Musical Expressivity in an Automatic Piano Accompanist",
+   "crossref_title": "The ACCompanion: Combining Reactivity, Robustness, and Musical Expressivity in an Automatic Piano Accompanist",
+   "venue": "Proceedings of the Thirty-Second International Joint Conference on Artificial Intelligence"
+  },
+  {
+   "key": "Agrawal2020Learning",
+   "list": "related",
+   "doi": "10.23919/eusipco47968.2020.9287625",
+   "similarity": 1.0,
+   "type": "proceedings-article",
+   "year": 2021,
+   "author_match": true,
+   "title": "Learning Frame Similarity using Siamese networks for Audio-to-Score Alignment",
+   "crossref_title": "Learning Frame Similarity using Siamese networks for Audio-to-Score Alignment",
+   "venue": "2020 28th European Signal Processing Conference (EUSIPCO)"
+  },
+  {
+   "key": "Bryson1995Reactive",
+   "list": "related",
+   "doi": "10.1007/978-3-642-79629-6_15",
+   "similarity": 1.0,
+   "type": "book-chapter",
+   "year": 1995,
+   "author_match": true,
+   "title": "The Reactive Accompanist: Adaptation and Behavior Decomposition in a Music System",
+   "crossref_title": "The Reactive Accompanist: Adaptation and Behavior Decomposition in a Music System",
+   "venue": "The Biology and Technology of Intelligent Autonomous Agents"
+  }
+ ],
+ "review": [
+  {
+   "key": "Cuvillier2016Temporal",
+   "list": "core",
+   "doi": "10.70675/c1f64bd9z2633z47d3za2c5zbb6eda045f66",
+   "similarity": 1.0,
+   "type": "dissertation",
+   "year": null,
+   "author_match": true,
+   "title": "On temporal coherency of probabilistic models for audio-to-score alignment",
+   "crossref_title": "On temporal coherency of probabilistic models for audio-to-score alignment",
+   "venue": ""
+  },
+  {
+   "key": "Raphael2001Mixed",
+   "list": "related",
+   "doi": "10.1016/s0004-3702(02)00192-3",
+   "similarity": 0.909,
+   "type": "journal-article",
+   "year": 2002,
+   "author_match": true,
+   "title": "A Mixed Graphical Model for Rhythmic Parsing",
+   "crossref_title": "A hybrid graphical model for rhythmic parsing",
+   "venue": "Artificial Intelligence"
+  }
+ ]
+}
