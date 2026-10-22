@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 data/zotero_snapshot.json
 data/candidates.json
+data/crossref_report.json
