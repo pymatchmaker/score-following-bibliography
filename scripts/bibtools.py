@@ -3,6 +3,7 @@
 Only the standard library is used. Field values are kept as raw BibTeX
 strings (without the outer braces), so entries round-trip unchanged.
 """
+import json
 import re
 import unicodedata
 from pathlib import Path
@@ -15,6 +16,11 @@ BIB_FILES = {
     "related": ROOT / "ScoreFollowing-Related.bib",
     "unverified": ROOT / "ScoreFollowing-Unverified.bib",
 }
+
+# The methods overview: one row per method, keyed by the citation key of the
+# entry that describes it. Study names and years come from the .bib entry.
+OVERVIEW = ROOT / "data" / "overview.json"
+OVERVIEW_FIELDS = ("family", "approach", "input", "features", "evaluation")
 
 # Fields are written in this order; any others follow alphabetically.
 FIELD_ORDER = [
@@ -107,6 +113,22 @@ def read_bib(path):
 def write_bib(path, entries):
     entries = sorted(entries, key=lambda e: e.key.lower())
     Path(path).write_text(HEADER + "\n".join(e.to_bibtex() for e in entries), encoding="utf-8")
+
+
+def read_overview(known_keys):
+    """The overview rows, and a list of problems (unknown keys, empty fields)."""
+    if not OVERVIEW.exists():
+        return [], []
+    rows = json.loads(OVERVIEW.read_text(encoding="utf-8"))["rows"]
+    problems = []
+    for i, row in enumerate(rows, 1):
+        where = f"{OVERVIEW.name} row {i} ({row.get('key')})"
+        if row.get("key") not in known_keys:
+            problems.append(f"{where}: no .bib entry with this key")
+        missing = [f for f in OVERVIEW_FIELDS if not str(row.get(f, "")).strip()]
+        if missing:
+            problems.append(f"{where}: missing {', '.join(missing)}")
+    return rows, problems
 
 
 # --- Plain-text helpers ----------------------------------------------------

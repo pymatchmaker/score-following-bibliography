@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the static website from the .bib files into site/.
 
-    python3 generate_site.py            # writes site/index.html, related.html, unverified.html
+    python3 generate_site.py            # writes site/index.html, related.html, unverified.html, overview.html
     python3 generate_site.py --check    # only parse and validate, write nothing
 
 The layout follows the OMR Research bibliography. The pages need no external
@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 from bibtools import (BIB_FILES, ROOT, ascii_fold, last_name, latex_to_text, read_bib,  # noqa: E402
-                      split_authors)
+                      read_overview, split_authors)
 
 OUT = ROOT / "site"
 TITLE = "Bibliography on Real-Time Score Following"
@@ -36,6 +36,19 @@ PAGES = {
     "unverified": ("unverified.html", "Unverified",
                    "Candidate entries that were found automatically or submitted but have not yet been "
                    "checked by a maintainer. Metadata may be incomplete or wrong."),
+}
+
+OVERVIEW_PAGE = ("overview.html", "Methods overview",
+                 "Real-time score-following methods at a glance: what each one models, which input and "
+                 "features it uses, and how it was evaluated. Click a study for its full reference.")
+
+# Abbreviations used in the overview's cells.
+ABBREVIATIONS = {
+    "AMT": "automatic music transcription", "AR": "alignment rate", "BN": "Bayesian network", "CNN": "convolutional neural network",
+    "CQT": "constant-Q transform", "HMM": "hidden Markov model", "HSMM": "hidden semi-Markov model",
+    "IOI": "inter-onset interval", "LCS": "longest common subsequence",
+    "MFCC": "mel-frequency cepstral coefficients", "MRR": "mean reciprocal rank",
+    "NMF": "non-negative matrix factorization", "OLTW": "on-line time warping", "SSM": "state-space model",
 }
 
 MONTHS = {m: i for i, m in enumerate(
@@ -155,15 +168,55 @@ def render_keyword_options(vocabulary, counts):
     return "".join(groups)
 
 
-def render_page(name, entries, vocabulary, totals):
+def render_nav(active, totals, n_overview):
+    links = [(PAGES[n][0], PAGES[n][1], totals[n]) for n in PAGES]
+    links.insert(1, (OVERVIEW_PAGE[0], OVERVIEW_PAGE[1], n_overview))
+    return "".join(
+        f'<a href="{href}" class="btn-nav{" btn-nav-active" if href == active else ""}">'
+        f'{esc(label)} <span class="n">{n}</span></a>' for href, label, n in links)
+
+
+def short_citation(e):
+    """"Dixon (2005)", "Arzt and Widmer (2010)", "Arzt et al. (2008)"."""
+    names = [latex_to_text(last_name(a)) for a in split_authors(e.get("author") or e.get("editor"))]
+    who = names[0] if len(names) == 1 else " and ".join(names) if len(names) == 2 else f"{names[0]} et al."
+    return f"{who} ({latex_to_text(e.get('year'))})"
+
+
+def render_overview(rows, entries, page_of, totals):
+    """The methods overview: one table row per method, linked to its entry, oldest first."""
+    rows = sorted(rows, key=lambda row: year_month(entries[row["key"]]))
+    body = []
+    for i, row in enumerate(rows):
+        e = entries[row["key"]]
+        study = short_citation(e)
+        cells = [row[f] for f in ("family", "approach", "input", "features", "evaluation")]
+        search = " ".join([study, latex_to_text(e.get("title")), *cells]).lower()
+        body.append(
+            f'<tr data-order="{i}" data-year="{year_month(e)}"'
+            f' data-family="{esc(row["family"])}" data-input="{esc(row["input"])}" data-search="{esc(search)}">'
+            f'<td class="ov-study"><a href="{page_of[row["key"]]}#{esc(e.key)}">{esc(study)}</a>'
+            f'<span class="ov-title">{esc(latex_to_text(e.get("title")))}</span></td>'
+            + "".join(f"<td>{esc(c)}</td>" for c in cells) + "</tr>")
+    used = " ".join(f'{r["approach"]} {r["features"]} {r["evaluation"]}' for r in rows)
+    legend = "; ".join(f"{a}: {d}" for a, d in ABBREVIATIONS.items() if re.search(rf"\b{a}\b", used))
+    filename, heading, intro = OVERVIEW_PAGE
+    return OVERVIEW_TEMPLATE.format(
+        title=esc(TITLE), heading=esc(heading), intro=esc(intro), repo=esc(REPO_URL),
+        nav=render_nav(filename, totals, len(rows)), updated=date.today().strftime("%d.%m.%Y"),
+        families=render_options([(f, f) for f in sorted({r["family"] for r in rows})]),
+        inputs=render_options([(v, v) for v in sorted({r["input"] for r in rows})]),
+        rows="\n".join(body), count=len(rows), legend=esc(legend),
+        script=OVERVIEW_SCRIPT, style=STYLE + OVERVIEW_STYLE)
+
+
+def render_page(name, entries, vocabulary, totals, n_overview):
     filename, heading, intro = PAGES[name]
     labels = {k: v for tags in vocabulary.values() for k, v in tags.items()}
     entries = sorted(entries, key=sort_key)
     years = sorted({latex_to_text(e.get("year")) for e in entries if e.get("year")}, reverse=True)
     types = Counter(e.type for e in entries)
-    nav = "".join(
-        f'<a href="{PAGES[n][0]}" class="btn-nav{" btn-nav-active" if n == name else ""}">'
-        f'{esc(PAGES[n][1])} <span class="n">{totals[n]}</span></a>' for n in PAGES)
+    nav = render_nav(filename, totals, n_overview)
     return TEMPLATE.format(
         title=esc(TITLE), heading=esc(heading), intro=esc(intro), nav=nav, repo=esc(REPO_URL),
         updated=date.today().strftime("%d.%m.%Y"), bibfile=esc(BIB_FILES[name].name),
@@ -183,9 +236,16 @@ def main():
     vocabulary = json.loads((ROOT / "keywords.json").read_text())
     lists = {name: read_bib(path) for name, path in BIB_FILES.items()}
     totals = {name: len(entries) for name, entries in lists.items()}
-    pages = {PAGES[name][0]: render_page(name, entries, vocabulary, totals) for name, entries in lists.items()}
+    entries = {e.key: e for name in lists for e in lists[name]}
+    page_of = {e.key: PAGES[name][0] for name in lists for e in lists[name]}
+    rows, problems = read_overview(entries)
+    if problems:
+        sys.exit("\n".join(problems))
+    pages = {PAGES[name][0]: render_page(name, entries_, vocabulary, totals, len(rows))
+             for name, entries_ in lists.items()}
+    pages[OVERVIEW_PAGE[0]] = render_overview(rows, entries, page_of, totals)
     if args.check:
-        print("OK:", ", ".join(f"{n} {name}" for name, n in totals.items()))
+        print("OK:", ", ".join(f"{n} {name}" for name, n in totals.items()), f"· {len(rows)} overview rows")
         return
     OUT.mkdir(exist_ok=True)
     for filename, content in pages.items():
@@ -379,6 +439,119 @@ TEMPLATE = """<!doctype html>
 <p>Maintained alongside <a href="https://github.com/pymatchmaker/matchmaker">Matchmaker</a>. Missing a paper or found an error?
 Open an issue or a pull request on <a href="{repo}">GitHub</a>.
 Modelled on the <a href="https://omr-research.github.io/">Bibliography on Optical Music Recognition</a>.</p>
+</footer>
+<script>{script}</script>
+</body>
+</html>
+"""
+
+OVERVIEW_STYLE = """
+.overview-wrap{padding:12px 20px;max-width:1300px;margin:0 auto}
+.overview{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e1e4e8;border-radius:6px;font-size:.9rem}
+.overview th,.overview td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #eef0f2}
+.overview th{position:sticky;top:57px;background:#f1f3f5;font-weight:600;white-space:nowrap;z-index:5}
+.overview th button{all:unset;cursor:pointer}
+.overview th button:hover,.overview th button:focus-visible{color:#991557;text-decoration:underline}
+.overview th[aria-sort=ascending] button::after{content:" \\2191"}
+.overview th[aria-sort=descending] button::after{content:" \\2193"}
+.overview tbody tr:hover{background:#fafbfc}
+.ov-study a{font-weight:600}
+.ov-title{display:block;color:#666;font-size:.8rem;line-height:1.35;margin-top:2px}
+.legend{color:#666;font-size:.85rem;margin:12px 0 0}
+@media (max-width:900px){
+  .overview-wrap{padding:12px 16px;overflow-x:auto}
+  .overview{min-width:820px}
+  .overview th{position:static}
+}
+"""
+
+OVERVIEW_SCRIPT = """
+(function(){
+  const $ = id => document.getElementById(id);
+  const tbody = $('overviewRows'), rows = [...tbody.rows];
+  const controls = ['q', 'fFamily', 'fInput'];
+  let sort = {col: 'order', dir: 1};
+  const value = (r, col) => col === 'order' || col === 'year' ? +r.dataset[col]
+    : r.cells[+col].textContent.toLowerCase();
+
+  function apply(){
+    const terms = $('q').value.toLowerCase().split(/\\s+/).filter(Boolean);
+    const fam = $('fFamily').value, inp = $('fInput').value;
+    let shown = 0;
+    for (const r of rows){
+      const ok = terms.every(t => r.dataset.search.includes(t))
+        && (!fam || r.dataset.family === fam) && (!inp || r.dataset.input === inp);
+      r.hidden = !ok; if (ok) shown++;
+    }
+    rows.sort((a, b) => {
+      const x = value(a, sort.col), y = value(b, sort.col);
+      return (x < y ? -1 : x > y ? 1 : 0) * sort.dir || a.dataset.order - b.dataset.order;
+    }).forEach(r => tbody.appendChild(r));
+    $('noResults').hidden = shown > 0;
+    $('statLabel').textContent = shown === rows.length ? rows.length + ' methods' : shown + ' of ' + rows.length + ' methods';
+  }
+
+  document.querySelectorAll('.overview th[data-col]').forEach(th => {
+    th.querySelector('button').addEventListener('click', () => {
+      const col = th.dataset.col;
+      sort = {col, dir: sort.col === col ? -sort.dir : 1};
+      document.querySelectorAll('.overview th').forEach(h => h.removeAttribute('aria-sort'));
+      th.setAttribute('aria-sort', sort.dir > 0 ? 'ascending' : 'descending');
+      apply();
+    });
+  });
+  for (const id of controls) $(id).addEventListener(id === 'q' ? 'input' : 'change', apply);
+  apply();
+})();
+"""
+
+OVERVIEW_TEMPLATE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{heading} – {title}</title>
+<meta name="description" content="{intro}">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,700&display=swap">
+<style>{style}</style>
+</head>
+<body>
+<section class="page-header">
+<h1>{title}</h1>
+<p>Last updated: {updated}</p>
+<a href="{repo}" class="btn-github">View on GitHub</a>
+<nav class="page-nav">{nav}</nav>
+</section>
+
+<div class="controls" id="controls">
+<input type="search" id="q" placeholder="Search study, title, approach, features…" aria-label="Search">
+<select id="fFamily" aria-label="Family"><option value="">All families</option>{families}</select>
+<select id="fInput" aria-label="Input"><option value="">All inputs</option>{inputs}</select>
+<span class="stat-label" id="statLabel">{count} methods</span>
+</div>
+
+<main class="overview-wrap">
+<p class="page-intro">{intro}</p>
+<table class="overview">
+<thead><tr>
+<th data-col="year" scope="col"><button type="button">Study</button></th>
+<th data-col="1" scope="col"><button type="button">Family</button></th>
+<th data-col="2" scope="col"><button type="button">Approach</button></th>
+<th data-col="3" scope="col"><button type="button">Input</button></th>
+<th data-col="4" scope="col"><button type="button">Features</button></th>
+<th data-col="5" scope="col"><button type="button">Evaluation</button></th>
+</tr></thead>
+<tbody id="overviewRows">
+{rows}
+</tbody>
+</table>
+<p class="no-results" id="noResults" hidden>No methods match the current filters.</p>
+<p class="legend">{legend}.</p>
+</main>
+
+<footer class="page-footer">
+<p>Maintained alongside <a href="https://github.com/pymatchmaker/matchmaker">Matchmaker</a>. Missing a method or found an error?
+Open an issue or a pull request on <a href="{repo}">GitHub</a> that edits <code>data/overview.json</code>.</p>
 </footer>
 <script>{script}</script>
 </body>

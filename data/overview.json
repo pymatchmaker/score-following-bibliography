@@ -1,0 +1,303 @@
+{
+  "_comment": "Methods overview shown on overview.html: one row per method, keyed by the citation key of the entry that describes it. Study names, years and titles come from the .bib entry. `source`, where given, is where the fields were checked.",
+  "rows": [
+    {
+      "key": "Dannenberg1984Line",
+      "family": "Sequence matching",
+      "approach": "LCS matching",
+      "input": "Symbolic",
+      "features": "Pitch",
+      "evaluation": "Qualitative"
+    },
+    {
+      "key": "Vercoe1984Synthetic",
+      "family": "Sequence matching",
+      "approach": "Pitch–time matching",
+      "input": "Audio (mono) + sensors",
+      "features": "Pitch; timing; fingering",
+      "evaluation": "Qualitative"
+    },
+    {
+      "key": "Raphael2001Bayesian",
+      "family": "Probabilistic modeling",
+      "approach": "HMM + Gaussian BN",
+      "input": "Audio (mono)",
+      "features": "Pitch",
+      "evaluation": "Qualitative"
+    },
+    {
+      "key": "Dixon2005Live",
+      "family": "Sequence matching",
+      "approach": "OLTW",
+      "input": "Audio (poly)",
+      "features": "Spectral difference",
+      "evaluation": "Path error; path AR"
+    },
+    {
+      "key": "Arzt2008Automatic",
+      "family": "Sequence matching",
+      "approach": "OLTW + path refinement",
+      "input": "Audio (poly)",
+      "features": "Spectral difference; onsets",
+      "evaluation": "Onset error; recovery time"
+    },
+    {
+      "key": "Arzt2010Simple",
+      "family": "Sequence matching",
+      "approach": "OLTW + tempo",
+      "input": "Audio (poly)",
+      "features": "Spectral difference",
+      "evaluation": "Onset error; onset AR"
+    },
+    {
+      "key": "Arzt2010Effective",
+      "family": "Sequence matching",
+      "approach": "OLTW + global search",
+      "input": "Audio (poly)",
+      "features": "Spectral difference",
+      "evaluation": "Recovery time; false jumps"
+    },
+    {
+      "key": "Cont2010Coupled",
+      "family": "Probabilistic modeling",
+      "approach": "Semi-Markov model",
+      "input": "Audio (poly)",
+      "features": "Spectrum; pitch templates",
+      "evaluation": "Onset error; onset AR"
+    },
+    {
+      "key": "Duan2011State",
+      "family": "Probabilistic modeling",
+      "approach": "Position–tempo SSM",
+      "input": "Audio (poly)",
+      "features": "Multipitch likelihood / chroma",
+      "evaluation": "Onset AR; position error"
+    },
+    {
+      "key": "Montecchio2011Unified",
+      "family": "Probabilistic modeling",
+      "approach": "Position–tempo SSM",
+      "input": "Audio (poly)",
+      "features": "Power spectrum",
+      "evaluation": "Onset error; path error"
+    },
+    {
+      "key": "Otsuka2011Real",
+      "family": "Probabilistic modeling",
+      "approach": "Position–tempo SSM",
+      "input": "Audio (poly)",
+      "features": "Chroma; spectrum; onsets",
+      "evaluation": "Position error; tracking coverage"
+    },
+    {
+      "key": "Korzeniowski2013Tracking",
+      "family": "Probabilistic modeling",
+      "approach": "Mixed-state SSM",
+      "input": "Audio (poly)",
+      "features": "Spectrum; spectral flux; loudness",
+      "evaluation": "Misalignment rate; miss rate"
+    },
+    {
+      "key": "Nakamura2014Outer",
+      "family": "Probabilistic modeling",
+      "approach": "Outer-product HMM",
+      "input": "Symbolic",
+      "features": "Pitch; IOI",
+      "evaluation": "Note-position error rate; recovery time"
+    },
+    {
+      "key": "Nakamura2014Merged",
+      "family": "Probabilistic modeling",
+      "approach": "Merged-output HMM",
+      "input": "Symbolic",
+      "features": "Pitch; IOI",
+      "evaluation": "Note-position error rate; recovery time"
+    },
+    {
+      "key": "Arzt2015Real",
+      "family": "Sequence matching",
+      "approach": "Multi-reference OLTW",
+      "input": "Audio (poly)",
+      "features": "Chroma; onset features",
+      "evaluation": "Onset/downbeat AR"
+    },
+    {
+      "key": "CarabiasOrti2015Audio",
+      "family": "Sequence matching",
+      "approach": "OLTW",
+      "input": "Audio (poly)",
+      "features": "NMF spectral templates",
+      "evaluation": "Onset AR; onset error"
+    },
+    {
+      "key": "Li2015Score",
+      "family": "Probabilistic modeling",
+      "approach": "Position–tempo SSM",
+      "input": "Audio (poly)",
+      "features": "Multipitch likelihood; spectral flux",
+      "evaluation": "Onset AR; onset error"
+    },
+    {
+      "key": "Nakamura2016Real",
+      "family": "Probabilistic modeling",
+      "approach": "Hierarchical HMM",
+      "input": "Audio (mono)",
+      "features": "CQT",
+      "evaluation": "Onset AR; recovery time"
+    },
+    {
+      "key": "RodriguezSerrano2017Tempo",
+      "family": "Sequence matching",
+      "approach": "OLTW + tempo",
+      "input": "Audio (poly)",
+      "features": "NMF spectral templates",
+      "evaluation": "Onset AR; prediction lead time"
+    },
+    {
+      "key": "Dorfer2018Learning",
+      "family": "Learned policies",
+      "approach": "CNN policy",
+      "input": "Audio (poly) + score image",
+      "features": "Spectrogram; score pixels",
+      "evaluation": "Spatial error; piece completion"
+    },
+    {
+      "key": "Henkel2019Score",
+      "family": "Learned policies",
+      "approach": "CNN policy",
+      "input": "Audio (poly) + score image",
+      "features": "Spectrogram; score pixels",
+      "evaluation": "Spatial error; piece completion"
+    },
+    {
+      "key": "Brazier2020Reliable",
+      "family": "Sequence matching",
+      "approach": "OLTW + event gating",
+      "input": "Audio (poly)",
+      "features": "MFCC; event features",
+      "evaluation": "Bar-boundary error; bar AR"
+    },
+    {
+      "key": "Jiang2020Score",
+      "family": "Probabilistic modeling",
+      "approach": "Switching SSM",
+      "input": "Audio (poly)",
+      "features": "Chord spectra",
+      "evaluation": "Correct-state probability"
+    },
+    {
+      "key": "CancinoChacon2023Accompanion",
+      "family": "Sequence matching",
+      "approach": "OLTW",
+      "input": "Symbolic",
+      "features": "Pitch",
+      "evaluation": "Asynchrony; onset AR"
+    },
+    {
+      "key": "CancinoChacon2023Accompanion",
+      "family": "Probabilistic modeling",
+      "approach": "Switching SSM",
+      "input": "Symbolic",
+      "features": "Pitch; IOI",
+      "evaluation": "Asynchrony; onset AR"
+    },
+    {
+      "key": "Peter2023Online",
+      "family": "Learned policies",
+      "approach": "Attention value model",
+      "input": "Symbolic",
+      "features": "Pitch",
+      "evaluation": "Onset hit rate; note-pair F1"
+    },
+    {
+      "key": "Grubb1997Stochastic",
+      "family": "Probabilistic modeling",
+      "approach": "Position density + tempo",
+      "input": "Audio (mono)",
+      "features": "Pitch",
+      "evaluation": "Onset error",
+      "source": "https://www.cs.cmu.edu/~rbd/papers/icmc97accomp.pdf"
+    },
+    {
+      "key": "Schwarz2004Robust",
+      "family": "Probabilistic modeling",
+      "approach": "Two-level HMM",
+      "input": "Symbolic",
+      "features": "Note match; attack match",
+      "evaluation": "Qualitative",
+      "source": "https://hal.science/hal-01161328"
+    },
+    {
+      "key": "Pardo2005Modeling",
+      "family": "Probabilistic modeling",
+      "approach": "Form-aware HMM",
+      "input": "Symbolic",
+      "features": "Pitch class",
+      "evaluation": "Position error",
+      "source": "https://interactiveaudiolab.github.io/assets/papers/pardo-birmingham-aaai-05.pdf"
+    },
+    {
+      "key": "Arzt2014Tempo",
+      "family": "Sequence matching",
+      "approach": "Fingerprinting + multi-agent tracking",
+      "input": "Audio (poly)",
+      "features": "Pitch intervals; onset-time ratios",
+      "evaluation": "Piece/position accuracy; MRR; query time",
+      "source": "https://archives.ismir.net/ismir2014/paper/000276.pdf"
+    },
+    {
+      "key": "Nakamura2015Autoregressive",
+      "family": "Probabilistic modeling",
+      "approach": "Autoregressive HSMM",
+      "input": "Symbolic",
+      "features": "Pitch; IOI",
+      "evaluation": "Note error rate; computation time",
+      "source": "https://archives.ismir.net/ismir2015/paper/000015.pdf"
+    },
+    {
+      "key": "Dorfer2016Live",
+      "family": "Learned policies",
+      "approach": "Multimodal CNN",
+      "input": "Audio (mono) + score image",
+      "features": "Spectrogram; score pixels",
+      "evaluation": "Qualitative",
+      "source": "https://arxiv.org/abs/1612.05076"
+    },
+    {
+      "key": "Henkel2021Real",
+      "family": "Learned policies",
+      "approach": "Multi-resolution detection network",
+      "input": "Audio (poly) + score image",
+      "features": "Spectrogram; score pixels",
+      "evaluation": "Tracking error; bar/system accuracy",
+      "source": "https://www.frontiersin.org/articles/10.3389/fcomp.2021.718340/full (publisher HTML, not the PDF)"
+    },
+    {
+      "key": "Brazier2023Autonomous",
+      "family": "Sequence matching",
+      "approach": "Two-level OLTW + event detection",
+      "input": "Audio (poly)",
+      "features": "MFCC; phoneme posteriograms",
+      "evaluation": "Bar-boundary error; bar AR",
+      "source": "https://epub.jku.at/urn/urn:nbn:at:at-ubl:1-61055"
+    },
+    {
+      "key": "Pillay2024Neural",
+      "family": "Learned policies",
+      "approach": "CNN template matching + heuristics",
+      "input": "Symbolic",
+      "features": "Piano roll",
+      "evaluation": "Onset error; misalignment rate; latency",
+      "source": "https://arxiv.org/abs/2503.06348"
+    },
+    {
+      "key": "Peter2025Pairing",
+      "family": "Sequence matching",
+      "approach": "AMT + OLTW + tempo",
+      "input": "Audio (poly)",
+      "features": "Transcribed pitch; onset time",
+      "evaluation": "Onset AR; tracked performances",
+      "source": "https://arxiv.org/abs/2505.05078"
+    }
+  ]
+}

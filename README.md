@@ -15,6 +15,7 @@ The site will be published at <https://pymatchmaker.github.io/score-following-bi
 | `ScoreFollowing-Related.bib` | Verified related work: offline alignment, features, datasets, tools, general references |
 | `ScoreFollowing-Unverified.bib` | Candidates found automatically or submitted, not yet checked |
 | `keywords.json` | The allowed values of the `keywords` field, grouped for the site's filters |
+| `data/overview.json` | The methods overview (`overview.html`): one row per method, keyed by its entry's citation key |
 | `generate_site.py` | Builds the static site into `site/` (standard library only) |
 | `scripts/check_bibtex.py` | Checks for duplicate keys/titles/DOIs, missing fields, unknown keywords and sort order |
 | `scripts/zotero_fetch.py`, `scripts/zotero_import.py` | Import new items from the Zotero group library |
@@ -28,7 +29,7 @@ scripts only ever add entries and never change existing ones.
 ## Building the site
 
 ```sh
-python3 generate_site.py          # writes site/index.html, related.html, unverified.html
+python3 generate_site.py          # writes site/index.html, related.html, unverified.html, overview.html
 python3 -m http.server -d site    # then open http://localhost:8000
 ```
 
@@ -43,6 +44,17 @@ python3 -m http.server -d site    # then open http://localhost:8000
   the problem addressed, the application and the kind of work.
 - Run `python3 scripts/check_bibtex.py --fix` before committing; it sorts the
   files. `git config core.hooksPath hooks` runs it automatically on every commit.
+
+## The methods overview
+
+`overview.html` is a table of real-time score-following methods: for each one,
+its family (sequence matching, probabilistic modeling or learned policies), the
+approach, the input, the features and how it was evaluated. Each row lives in
+`data/overview.json` under the citation key of the entry that describes the
+method; the study name, year and title come from that entry. A paper with two
+methods gets two rows. Add `source` with the URL you checked the fields against.
+`scripts/check_bibtex.py` and `generate_site.py` fail if a row names a key that
+is not in the `.bib` files or leaves a field empty.
 
 ## Adding papers
 

@@ -3,15 +3,17 @@
 
 Checks, across all .bib files: duplicate citation keys, duplicate titles and
 DOIs, missing required fields, keywords not listed in keywords.json, and that
-each file is sorted by key. With --fix, the files are rewritten sorted and in
-canonical formatting. Exits with status 1 if a problem is left.
+each file is sorted by key. Also checks that every row of the methods overview
+(data/overview.json) names an existing entry and fills every field. With --fix,
+the files are rewritten sorted and in canonical formatting. Exits with status 1
+if a problem is left.
 """
 import argparse
 import json
 import sys
 from collections import defaultdict
 
-from bibtools import BIB_FILES, ROOT, normalize_title, read_bib, write_bib
+from bibtools import BIB_FILES, ROOT, normalize_title, read_bib, read_overview, write_bib
 
 REQUIRED = {"author", "title", "year"}
 
@@ -24,10 +26,12 @@ def main():
     vocabulary = {k for group in json.loads((ROOT / "keywords.json").read_text()).values() for k in group}
     problems = []
     seen = defaultdict(lambda: defaultdict(list))  # kind -> value -> [where]
+    known = set()
 
     for name, path in BIB_FILES.items():
         entries = read_bib(path)
         keys = [e.key for e in entries]
+        known.update(keys)
         if keys != sorted(keys, key=str.lower):
             if args.fix:
                 print(f"sorted {path.name}")
@@ -47,6 +51,8 @@ def main():
             unknown = set(e.keywords) - vocabulary
             if unknown:
                 problems.append(f"{where}: unknown keywords {', '.join(sorted(unknown))}")
+
+    problems += read_overview(known)[1]
 
     for kind, values in seen.items():
         for value, places in values.items():
